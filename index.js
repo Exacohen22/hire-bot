@@ -24,8 +24,7 @@ let lastCheckedAt = new Date();
 
 async function gemFetch(path) {
   const res = await fetch(`${GEM_API_BASE}${path}`, {
-    headers: { 'Authorization': `Bearer ${GEM_API_KEY}`, 'Content-Type': 'application/json' }
-  });
+    headers: { 'X-API-Key': GEM_API_KEY, 'Content-Type': 'application/json' }  });
   if (!res.ok) throw new Error(`Gem API ${res.status}: ${await res.text()}`);
   return res.json();
 }
