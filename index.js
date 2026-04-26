@@ -71,7 +71,7 @@ function buildHireBlocks({ candidateName, role, location, recruiter }) {
   return [
     {
       type: 'image',
-      image_url: 'https://media.giphy.com/media/3o7abBP0nMjrdIvaCY/giphy.gif',
+      image_url: 'https://media.giphy.com/media/b85mPT4Usz7fq/giphy.gif',
       alt_text: 'rockets launching'
     },
     {
