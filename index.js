@@ -142,12 +142,12 @@ function _drawGrid(frame) {
 
 function _drawTrail(frame, cx, cy) {
   const engineY = cy + 14;
-  for (let dy = 0; dy < 70; dy++) {
+  for (let dy = 0; dy < 40; dy++) {
     const ty = engineY + dy;
     if (ty < 0 || ty >= _GIF_H) continue;
-    const fade = 1 - dy / 70;
+    const fade = 1 - dy / 40;
     const c = fade > 0.55 ? 1 : fade > 0.25 ? 2 : 3;
-    const spread = Math.min(Math.round(dy / 5), 4);
+    const spread = Math.min(Math.round(dy / 8), 2);
     for (let dx = -spread; dx <= spread; dx++) {
       const edgeFade = Math.abs(dx) >= spread && spread > 1;
       _px(frame, cx + dx, ty, edgeFade ? 3 : c);
@@ -295,12 +295,12 @@ function buildHireBlocks({ candidateName, role, location, recruiter }) {
   return [
     {
       type: 'image',
-      image_url: 'https://hire-bot-032u.onrender.com/hire-gif?v=5',
+      image_url: 'https://hire-bot-032u.onrender.com/hire-gif?v=6',
       alt_text: 'Rocket emojis launching'
     },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: '🎉 *We have a new hire!* 🎉' }
+      text: { type: 'mrkdwn', text: '🎉 *We have a new hire!*' }
     },
     {
       type: 'section',
