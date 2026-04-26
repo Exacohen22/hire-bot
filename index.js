@@ -336,19 +336,19 @@ app.post('/new-hire', async (req, res) => {
     return res.status(401).json({ error: 'Invalid or missing secret.' });
   }
 
-  const { candidateName, role, location, recruiter } = req.body;
+  const { candidateName, role, location, recruiter, channel: channelOverride } = req.body;
   if (!candidateName || !role) {
     return res.status(400).json({ error: 'candidateName and role are required.' });
   }
 
   try {
     await slack.chat.postMessage({
-      channel: CHANNEL,
+      channel: channelOverride || CHANNEL,
       text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
       blocks: buildHireBlocks({ candidateName, role, location: location || 'TBD', recruiter: recruiter || 'Unknown' })
     });
     console.log(`[hire-bot] Announced ${candidateName} (${role}) via /new-hire`);
-    res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
+    res.json({ ok: true, message: `Announcement posted to ${channelOverride || CHANNEL}!` });
   } catch (err) {
     console.error('[hire-bot] Slack error:', err.message);
     res.status(500).json({ error: err.message });
@@ -364,9 +364,7 @@ app.post('/slash-hired', async (req, res) => {
     return res.status(401).json({ error: 'Invalid or missing secret.' });
   }
 
-  // Slack sends slash command data as form-encoded
   const text = (req.body.text || '').trim();
-  // Expected format: "Name, Role, Location, Recruiter"
   const parts = text.split(',').map(s => s.trim());
   const candidateName = parts[0] || 'Unknown Candidate';
   const role          = parts[1] || 'Unknown Role';
@@ -425,7 +423,7 @@ app.post('/gem-webhook', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /poll-gem  —  Manually trigger a Gem ATS poll
+// GET /poll-gem
 // ---------------------------------------------------------------------------
 app.get('/poll-gem', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
@@ -441,7 +439,7 @@ app.get('/poll-gem', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /hire-gif  —  Serves the Nominal-branded animated rocket GIF
+// GET /hire-gif
 // ---------------------------------------------------------------------------
 app.get('/hire-gif', (_req, res) => {
   res.setHeader('Content-Type', 'image/gif');
@@ -463,12 +461,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`[hire-bot] Running on port ${PORT}`);
   console.log(`[hire-bot] Announcing to: ${CHANNEL}`);
-  console.log(`[hire-bot] Webhook endpoint:       POST /new-hire`);
-  console.log(`[hire-bot] Gem webhook endpoint:   POST /gem-webhook`);
-  console.log(`[hire-bot] Slash command endpoint: POST /slash-hired`);
-  console.log(`[hire-bot] Gem poll endpoint:      GET  /poll-gem`);
-  console.log(`[hire-bot] GIF endpoint:           GET  /hire-gif`);
-
   if (GEM_API_KEY) {
     setInterval(pollGemForHires, POLL_INTERVAL_MS);
     console.log(`[hire-bot] Gem ATS polling enabled (every ${POLL_INTERVAL_MS / 60000} min)`);
