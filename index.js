@@ -7,7 +7,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------------------------------------------------------
-// Config
+// Confi
 // ---------------------------------------------------------------------------
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 const CHANNEL = process.env.SLACK_CHANNEL || '#new-hires';
@@ -81,6 +81,11 @@ async function pollGemForHires() {
 // ---------------------------------------------------------------------------
 function buildHireBlocks({ candidateName, role, location, recruiter }) {
   return [
+    {
+            type: 'image',
+            image_url: 'https://media.giphy.com/media/26tOZ42Mg6pbTUPHW/giphy.gif',
+            alt_text: 'confetti'
+    },
     { type: 'section', text: { type: 'mrkdwn', text: ':tada: :confetti_ball: *We have a new hire!* :confetti_ball: :tada:' } },
     { type: 'section', text: { type: 'mrkdwn', text: `Please join us in welcoming *${candidateName}* to the team! :wave:` } },
     { type: 'section', fields: [
