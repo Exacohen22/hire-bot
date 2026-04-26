@@ -60,8 +60,7 @@ async function pollGemForHires() {
     try {
       await slack.chat.postMessage({
         channel: CHANNEL,
-        text: `:tada: New hire alert! Welcome ${candidateName} as ${role}!`,
-        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
+          text: `:rocket: New hire: ${candidateName} — ${role} at Nominal`,        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
       });
       announcedAppIds.add(app.id);
       announced++;
@@ -85,10 +84,8 @@ function buildHireBlocks({ candidateName, role, location, recruiter }) {
             type: 'image',
       image_url: 'https://media.giphy.com/media/3o7abBP0nMjrdIvaCY/giphy.gif',
           alt_text: 'rockets launching'},
-    { type: 'section', text: { type: 'mrkdwn', text: ':tada: :confetti_ball: *We have a new hire!* :confetti_ball: :tada:' } },
-    { type: 'section', text: { type: 'mrkdwn', text: `Please join us in welcoming *${candidateName}* to the team! :wave:` } },
-    { type: 'section', fields: [
-      { type: 'mrkdwn', text: `*:bust_in_silhouette: Name*\n${candidateName}` },
+    { type: 'section', text: { type: 'mrkdwn', text: ':rocket: *Nominal has a new team member.* :rocket:' } },    { type: 'section', text: { type: 'mrkdwn', text: `Please join us in welcoming *${candidateName}* to the team! :wave:` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `Welcome *${candidateName}* — we're glad you're here. :nominal_star:` } },      { type: 'mrkdwn', text: `*:bust_in_silhouette: Name*\n${candidateName}` },
       { type: 'mrkdwn', text: `*:briefcase: Role*\n${role}` },
       { type: 'mrkdwn', text: `*:round_pushpin: Location*\n${location}` },
       { type: 'mrkdwn', text: `*:handshake: Recruiter*\n${recruiter}` }
