@@ -204,7 +204,7 @@ function _buildGifFrame(f) {
 function _generateHireGif() {
   const palette  = _buildPalette();
   const minCS    = 8;
-  const delayCs  = 6;
+  const delayCs  = 6; // 6/100 s ≈ 17 fps
   const parts = [];
   parts.push(Buffer.from('GIF89a'));
   parts.push(_u16(_GIF_W)); parts.push(_u16(_GIF_H));
@@ -230,17 +230,26 @@ function _generateHireGif() {
 const HIRE_GIF = _generateHireGif();
 console.log('[hire-bot] GIF generated:', Math.round(HIRE_GIF.length / 1024), 'KB');
 
+// ---------------------------------------------------------------------------
+// App setup
+// ---------------------------------------------------------------------------
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 const CHANNEL = process.env.SLACK_CHANNEL || '#new-hires';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 const GEM_API_KEY = process.env.GEM_API_KEY;
 const GEM_API_BASE = 'https://api.gem.com/ats/v0';
-const POLL_INTERVAL_MS = 10 * 60 * 1000;
+const POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
+// ---------------------------------------------------------------------------
+// Gem ATS polling state (in-memory)
+// ---------------------------------------------------------------------------
 const announcedAppIds = new Set();
 let lastCheckedAt = new Date();
 
@@ -248,118 +257,257 @@ async function gemFetch(path) {
   const res = await fetch(`${GEM_API_BASE}${path}`, {
     headers: { 'X-API-Key': GEM_API_KEY, 'Content-Type': 'application/json' }
   });
-  if (!res.ok) { const body = await res.text(); throw new Error(`Gem API ${res.status} on ${path}: ${body}`); }
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Gem API ${res.status} on ${path}: ${body}`);
+  }
   return res.json();
 }
 
 async function pollGemForHires() {
   if (!GEM_API_KEY) return { skipped: true };
+
   const after = lastCheckedAt.toISOString();
   const newLastChecked = new Date();
-  const apps = await gemFetch(`/applications?status=hired&last_activity_after=${encodeURIComponent(after)}&per_page=100`);
+
+  const apps = await gemFetch(
+    `/applications?status=hired&last_activity_after=${encodeURIComponent(after)}&per_page=100`
+  );
+
   let announced = 0;
   for (const app of apps) {
     if (announcedAppIds.has(app.id)) continue;
+
     let candidateName = 'Unknown Candidate';
-    try { const candidate = await gemFetch(`/candidates/${app.candidate_id}`); candidateName = candidate.name || [candidate.first_name, candidate.last_name].filter(Boolean).join(' ') || candidateName; } catch (_) {}
+    try {
+      const candidate = await gemFetch(`/candidates/${app.candidate_id}`);
+      candidateName = candidate.name
+        || [candidate.first_name, candidate.last_name].filter(Boolean).join(' ')
+        || candidateName;
+    } catch (_) {}
+
     const job = (app.jobs || [])[0] || {};
     const role = job.name || job.title || 'Unknown Role';
     const location = job.location || job.office || 'TBD';
     const rec = app.recruiter || app.coordinator || {};
     const recruiterName = rec.name || rec.email || 'Unknown Recruiter';
+
     try {
-      await slack.chat.postMessage({ channel: CHANNEL, text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`, blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName }) });
-      announcedAppIds.add(app.id); announced++;
+      await slack.chat.postMessage({
+        channel: CHANNEL,
+        text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
+        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
+      });
+      announcedAppIds.add(app.id);
+      announced++;
       console.log(`[hire-bot] Announced ${candidateName} (${role}) via Gem poll`);
-    } catch (err) { console.error(`[hire-bot] Slack error for ${candidateName}:`, err.message); }
+    } catch (err) {
+      console.error(`[hire-bot] Slack error for ${candidateName}:`, err.message);
+    }
   }
+
   lastCheckedAt = newLastChecked;
   console.log(`[hire-bot] Gem poll complete — ${announced} new hire(s) announced.`);
   return { announced, total: apps.length };
 }
 
+// ---------------------------------------------------------------------------
+// Message builder — Block Kit with Nominal-branded rocket GIF
+// ---------------------------------------------------------------------------
 function buildHireBlocks({ candidateName, role, location, recruiter }) {
   return [
-    { type: 'image', image_url: 'https://hire-bot-032u.onrender.com/hire-gif', alt_text: 'Nominal rockets launching' },
-    { type: 'section', text: { type: 'mrkdwn', text: ':rocket: *We have a new hire!*' } },
-    { type: 'section', text: { type: 'mrkdwn', text: `Please join us in welcoming *${candidateName}* to the team! :wave:` } },
-    { type: 'section', fields: [{ type: 'mrkdwn', text: `*NAME*\n${candidateName}` }, { type: 'mrkdwn', text: `*ROLE*\n${role}` }, { type: 'mrkdwn', text: `*LOCATION*\n${location}` }, { type: 'mrkdwn', text: `*RECRUITER*\n${recruiter}` }] },
+    {
+      type: 'image',
+      image_url: 'https://hire-bot-032u.onrender.com/hire-gif?v=3',
+      alt_text: 'Nominal rockets launching'
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: ':rocket: *We have a new hire!*' }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `Please join us in welcoming *${candidateName}* to the team! :wave:`
+      }
+    },
+    {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `*NAME*\n${candidateName}` },
+        { type: 'mrkdwn', text: `*ROLE*\n${role}` },
+        { type: 'mrkdwn', text: `*LOCATION*\n${location}` },
+        { type: 'mrkdwn', text: `*RECRUITER*\n${recruiter}` }
+      ]
+    },
     { type: 'divider' }
   ];
 }
 
+// ---------------------------------------------------------------------------
+// POST /new-hire  —  Webhook for ATS / HRIS integration
+// ---------------------------------------------------------------------------
 app.post('/new-hire', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.body.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
+
   const { candidateName, role, location, recruiter, channel: channelOverride } = req.body;
-  if (!candidateName || !role) return res.status(400).json({ error: 'candidateName and role are required.' });
+  if (!candidateName || !role) {
+    return res.status(400).json({ error: 'candidateName and role are required.' });
+  }
+
   try {
-    await slack.chat.postMessage({ channel: channelOverride || CHANNEL, text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`, blocks: buildHireBlocks({ candidateName, role, location: location || 'TBD', recruiter: recruiter || 'Unknown' }) });
+    await slack.chat.postMessage({
+      channel: channelOverride || CHANNEL,
+      text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
+      blocks: buildHireBlocks({ candidateName, role, location: location || 'TBD', recruiter: recruiter || 'Unknown' })
+    });
     console.log(`[hire-bot] Announced ${candidateName} (${role}) via /new-hire`);
-    res.json({ ok: true, message: `Announcement posted to ${channelOverride || CHANNEL}!` });
-  } catch (err) { console.error('[hire-bot] Slack error:', err.message); res.status(500).json({ error: err.message }); }
+    res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
+  } catch (err) {
+    console.error('[hire-bot] Slack error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// ---------------------------------------------------------------------------
+// POST /slash-hired  —  Slack slash command /hired
+// ---------------------------------------------------------------------------
 app.post('/slash-hired', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
+
+  // Slack sends slash command data as form-encoded
   const text = (req.body.text || '').trim();
+  // Expected format: "Name, Role, Location, Recruiter"
   const parts = text.split(',').map(s => s.trim());
   const candidateName = parts[0] || 'Unknown Candidate';
-  const role = parts[1] || 'Unknown Role';
-  const location = parts[2] || 'TBD';
-  const recruiter = parts[3] || 'Unknown Recruiter';
+  const role          = parts[1] || 'Unknown Role';
+  const location      = parts[2] || 'TBD';
+  const recruiter     = parts[3] || 'Unknown Recruiter';
+
   try {
-    await slack.chat.postMessage({ channel: CHANNEL, text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`, blocks: buildHireBlocks({ candidateName, role, location, recruiter }) });
+    await slack.chat.postMessage({
+      channel: CHANNEL,
+      text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter })
+    });
     console.log(`[hire-bot] Announced ${candidateName} (${role}) via /slash-hired`);
     res.json({ response_type: 'in_channel', text: `Announced ${candidateName} in ${CHANNEL}!` });
-  } catch (err) { console.error('[hire-bot] Slack error:', err.message); res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('[hire-bot] Slack error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// ---------------------------------------------------------------------------
+// POST /gem-webhook  —  Gem ATS webhook
+// ---------------------------------------------------------------------------
 app.post('/gem-webhook', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
+
   const { event, candidate, job, stage, recruiter } = req.body;
+
   const stageName = stage?.name || '';
-  if (!stageName.toLowerCase().includes('hired')) return res.json({ ok: true, message: `Stage "${stageName}" ignored — not a hire event.` });
-  const candidateName = candidate?.name || [candidate?.first_name, candidate?.last_name].filter(Boolean).join(' ') || 'Unknown Candidate';
-  const role = job?.name || 'Unknown Role';
-  const location = job?.office || job?.location || 'TBD';
-  const recruiterName = recruiter?.name || recruiter?.email || 'Unknown Recruiter';
+  if (!stageName.toLowerCase().includes('hired')) {
+    return res.json({ ok: true, message: `Stage "${stageName}" ignored — not a hire event.` });
+  }
+
+  const candidateName = candidate?.name
+    || [candidate?.first_name, candidate?.last_name].filter(Boolean).join(' ')
+    || 'Unknown Candidate';
+  const role           = job?.name || 'Unknown Role';
+  const location       = job?.office || job?.location || 'TBD';
+  const recruiterName  = recruiter?.name || recruiter?.email || 'Unknown Recruiter';
+
   try {
-    await slack.chat.postMessage({ channel: CHANNEL, text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`, blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName }) });
+    await slack.chat.postMessage({
+      channel: CHANNEL,
+      text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
+    });
     console.log(`[hire-bot] Announced ${candidateName} (${role}) via Gem webhook`);
     res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
-  } catch (err) { console.error('[hire-bot] Slack error:', err.message); res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('[hire-bot] Slack error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// ---------------------------------------------------------------------------
+// GET /poll-gem  —  Manually trigger a Gem ATS poll
+// ---------------------------------------------------------------------------
 app.get('/poll-gem', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
-  try { const result = await pollGemForHires(); res.json({ ok: true, ...result }); }
-  catch (err) { res.status(500).json({ error: err.message }); }
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
+  try {
+    const result = await pollGemForHires();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// ---------------------------------------------------------------------------
+// POST /test  —  No-auth test endpoint, always posts to #x-test
+// ---------------------------------------------------------------------------
 app.post('/test', async (req, res) => {
   const { candidateName = 'Rory Milne', role = 'Account Executive', location = 'UK', recruiter = 'Alex' } = req.body;
   try {
-    await slack.chat.postMessage({ channel: '#x-test', text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`, blocks: buildHireBlocks({ candidateName, role, location, recruiter }) });
+    await slack.chat.postMessage({
+      channel: '#x-test',
+      text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter })
+    });
     res.json({ ok: true, message: 'Test posted to #x-test' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// ---------------------------------------------------------------------------
+// GET /hire-gif  —  Serves the Nominal-branded animated rocket GIF
+// ---------------------------------------------------------------------------
 app.get('/hire-gif', (_req, res) => {
   res.setHeader('Content-Type', 'image/gif');
   res.setHeader('Cache-Control', 'public, max-age=86400');
   res.send(HIRE_GIF);
 });
 
-app.get('/', (_req, res) => res.json({ status: 'ok', service: 'hire-bot', channel: CHANNEL }));
+// ---------------------------------------------------------------------------
+// Health check
+// ---------------------------------------------------------------------------
+app.get('/', (_req, res) =>
+  res.json({ status: 'ok', service: 'hire-bot', channel: CHANNEL })
+);
 
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, () => 
   console.log(`[hire-bot] Running on port ${PORT}`);
   console.log(`[hire-bot] Announcing to: ${CHANNEL}`);
-  if (GEM_API_KEY) { setInterval(pollGemForHires, POLL_INTERVAL_MS); console.log(`[hire-bot] Gem ATS polling enabled`); }
-  else console.log('[hire-bot] GEM_API_KEY not set — Gem polling disabled');
+  console.log(`[hire-bot] Webhook endpoint:       POST /new-hire`);
+  console.log(`[hire-bot] Gem webhook endpoint:   POST /gem-webhook`);
+  console.log(`[hire-bot] Slash command endpoint: POST /slash-hired`);
+  console.log(`[hire-bot] Gem poll endpoint:      GET  /poll-gem`);
+  console.log(`[hire-bot] GIF endpoint:           GET  /hire-gif`);
+
+  if (GEM_API_KEY) {
+    setInterval(pollGemForHires, POLL_INTERVAL_MS);
+    console.log(`[hire-bot] Gem ATS polling enabled (every ${POLL_INTERVAL_MS / 60000} min)`);
+  } else {
+    console.log(`[hire-bot] GEM_API_KEY not set — Gem polling disabled`);
+  }
 });
