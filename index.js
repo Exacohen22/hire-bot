@@ -83,9 +83,8 @@ function buildHireBlocks({ candidateName, role, location, recruiter }) {
   return [
     {
             type: 'image',
-            image_url: 'https://media.giphy.com/media/26tOZ42Mg6pbTUPHW/giphy.gif',
-            alt_text: 'confetti'
-    },
+      image_url: 'https://media.giphy.com/media/3o7abBP0nMjrdIvaCY/giphy.gif',
+          alt_text: 'rockets launching'},
     { type: 'section', text: { type: 'mrkdwn', text: ':tada: :confetti_ball: *We have a new hire!* :confetti_ball: :tada:' } },
     { type: 'section', text: { type: 'mrkdwn', text: `Please join us in welcoming *${candidateName}* to the team! :wave:` } },
     { type: 'section', fields: [
