@@ -52,7 +52,7 @@ async function pollGemForHires() {
     try {
       await slack.chat.postMessage({
         channel: CHANNEL,
-        text: `:rocket: New hire: ${candidateName} — ${role} at Nominal`,
+        text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
         blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
       });
       announcedAppIds.add(app.id);
@@ -71,12 +71,12 @@ function buildHireBlocks({ candidateName, role, location, recruiter }) {
   return [
     {
       type: 'image',
-      image_url: 'https://media.giphy.com/media/b85mPT4Usz7fq/giphy.gif',
+      image_url: 'https://media.giphy.com/media/5G1VDKTWdvuVFa3TaM/giphy.gif',
       alt_text: 'rockets launching'
     },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: ':rocket: *Nominal has a new team member.* :rocket:' }
+      text: { type: 'mrkdwn', text: ':rocket: *We have a new hire!*' }
     },
     {
       type: 'section',
@@ -85,10 +85,10 @@ function buildHireBlocks({ candidateName, role, location, recruiter }) {
     {
       type: 'section',
       fields: [
-        { type: 'mrkdwn', text: `*Name*\n${candidateName}` },
-        { type: 'mrkdwn', text: `*Role*\n${role}` },
-        { type: 'mrkdwn', text: `*Location*\n${location}` },
-        { type: 'mrkdwn', text: `*Recruiter*\n${recruiter}` }
+        { type: 'mrkdwn', text: `*NAME*\n${candidateName}` },
+        { type: 'mrkdwn', text: `*ROLE*\n${role}` },
+        { type: 'mrkdwn', text: `*LOCATION*\n${location}` },
+        { type: 'mrkdwn', text: `*RECRUITER*\n${recruiter}` }
       ]
     },
     { type: 'divider' }
@@ -107,7 +107,7 @@ app.post('/new-hire', async (req, res) => {
   try {
     await slack.chat.postMessage({
       channel: CHANNEL,
-      text: `:rocket: New hire: ${candidateName} — ${role} at Nominal`,
+      text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
       blocks: buildHireBlocks({ candidateName, role, location, recruiter })
     });
     console.log(`[hire-bot] Announced ${candidateName} (${role}) via webhook`);
@@ -133,7 +133,7 @@ app.post('/slash-hired', async (req, res) => {
   try {
     await slack.chat.postMessage({
       channel: CHANNEL,
-      text: `:rocket: New hire: ${candidateName} — ${role} at Nominal`,
+      text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
       blocks: buildHireBlocks({ candidateName, role, location, recruiter })
     });
     console.log(`[hire-bot] Announced ${candidateName} (${role}) via slash command by ${recruiter}`);
@@ -161,7 +161,7 @@ app.post('/gem-webhook', async (req, res) => {
   try {
     await slack.chat.postMessage({
       channel: CHANNEL,
-      text: `:rocket: New hire: ${candidateName} — ${role} at Nominal`,
+      text: `:rocket: New hire alert! Welcome ${candidateName} as ${role}!`,
       blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
     });
     console.log(`[hire-bot] Announced ${candidateName} (${role}) via Gem webhook`);
