@@ -58,11 +58,13 @@ const _u16 = (n) => Buffer.from([n & 0xFF, (n >> 8) & 0xFF]);
 
 const _GIF_W = 540, _GIF_H = 160;
 
+// Base palette (system colors, indices 0-10)
 const _BASE_COLORS = [
   [0,0,0],[65,155,85],[30,80,45],[10,30,18],[210,215,225],[160,165,180],
   [75,170,250],[255,200,40],[255,130,20],[255,255,255],[120,120,130]
 ];
 
+// Extra colors extracted from the actual 🚀 emoji (indices 11-140)
 const _EMOJI_EXTRA = [
   [174,163,165],[185,177,182],[112,154,184],[99,169,224],[136,198,242],
   [122,170,215],[46,98,153],[181,126,129],[171,99,103],[129,61,65],
@@ -92,6 +94,8 @@ const _EMOJI_EXTRA = [
   [179,128,57],[212,177,39],[230,199,46],[228,202,67],[235,142,9]
 ];
 
+// 28x28 pixel indices into the full palette (-1 = transparent)
+// Rasterised from the actual 🚀 emoji via browser canvas
 const _EMOJI_IDX = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,11,12,24,5,13,14,15,16,17,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,18,19,20,21,22,23,24,25,26,16,17,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,27,19,28,29,3,21,30,4,51,4,13,31,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,36,18,32,29,3,0,33,34,35,35,36,37,38,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,24,39,40,3,0,41,42,43,35,44,23,45,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,25,5,46,39,47,48,49,50,34,51,44,11,52,53,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,54,55,16,56,56,57,58,59,60,51,36,11,61,53,29,-1,-1,-1,-1,-1,-1,-1,-1,62,63,63,63,72,10,64,65,65,107,24,66,51,51,36,11,61,67,29,-1,-1,-1,-1,-1,-1,-1,62,68,69,69,69,63,33,37,70,70,65,64,24,44,44,36,11,61,67,53,-1,-1,-1,-1,-1,-1,-1,-1,68,68,69,69,71,72,73,17,70,65,64,74,24,75,76,23,61,67,53,29,-1,-1,-1,-1,-1,-1,-1,77,77,78,78,79,80,48,81,82,65,64,74,5,23,83,61,10,67,53,29,-1,-1,-1,-1,-1,-1,-1,84,84,85,85,86,87,88,89,90,91,64,16,92,22,93,37,90,53,29,29,-1,-1,-1,-1,-1,-1,-1,-1,94,94,94,8,95,96,97,45,98,16,99,93,22,32,90,100,110,101,29,-1,-1,-1,-1,-1,-1,-1,-1,102,103,103,104,104,105,29,29,106,107,56,108,109,28,110,110,101,101,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,111,106,29,40,112,48,113,101,101,73,114,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,115,116,117,118,67,89,48,119,21,21,72,71,71,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,140,116,120,120,121,122,123,88,124,80,71,71,69,69,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,105,104,130,120,125,126,127,128,128,129,71,71,69,69,69,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,140,103,130,125,131,132,133,134,124,63,71,69,69,69,69,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,102,135,117,120,136,137,138,-1,85,78,69,69,69,71,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,140,104,135,135,139,135,102,-1,-1,95,78,69,69,71,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,140,102,104,140,140,105,-1,-1,-1,95,86,69,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,140,102,140,-1,-1,-1,-1,-1,-1,95,86,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
 
 const _COLORS = [..._BASE_COLORS, ..._EMOJI_EXTRA];
@@ -106,17 +110,22 @@ function _buildPalette() {
 }
 
 function _newFrame() { return new Uint8Array(_GIF_W * _GIF_H); }
+
 function _px(frame, x, y, c) {
   if (x >= 0 && x < _GIF_W && y >= 0 && y < _GIF_H) frame[y * _GIF_W + x] = c;
 }
+
 function _fillRect(frame, x0, y0, x1, y1, c) {
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) _px(frame, x, y, c);
 }
 
+// Draw the actual 🚀 emoji pixels (28x28, centred on cx,cy)
 function _drawRocket(frame, cx, cy) {
   const ox = cx - 14, oy = cy - 14;
   for (let i = 0; i < 784; i++) {
-    if (_EMOJI_IDX[i] >= 0) _px(frame, ox + (i % 28), oy + Math.floor(i / 28), _EMOJI_IDX[i]);
+    if (_EMOJI_IDX[i] >= 0) {
+      _px(frame, ox + (i % 28), oy + Math.floor(i / 28), _EMOJI_IDX[i]);
+    }
   }
 }
 
@@ -191,21 +200,25 @@ function _buildGifFrame(f) {
 }
 
 function _generateHireGif() {
-  const palette = _buildPalette();
-  const minCS = 8, delayCs = 6;
+  const palette  = _buildPalette();
+  const minCS    = 8;
+  const delayCs  = 6;
   const parts = [];
   parts.push(Buffer.from('GIF89a'));
   parts.push(_u16(_GIF_W)); parts.push(_u16(_GIF_H));
   parts.push(Buffer.from([0xF7, 0x00, 0x00]));
   parts.push(palette);
-  parts.push(Buffer.from([0x21, 0xFF, 0x0B, ...Buffer.from('NETSCAPE2.0'), 0x03, 0x01, 0x00, 0x00, 0x00]));
+  parts.push(Buffer.from([0x21, 0xFF, 0x0B,
+    ...Buffer.from('NETSCAPE2.0'), 0x03, 0x01, 0x00, 0x00, 0x00]));
   for (let f = 0; f < _TOTAL_FRAMES; f++) {
     const pixels = _buildGifFrame(f);
-    parts.push(Buffer.from([0x21, 0xF9, 0x04, 0x00, delayCs & 0xFF, (delayCs >> 8) & 0xFF, 0x00, 0x00]));
+    parts.push(Buffer.from([0x21, 0xF9, 0x04, 0x00,
+      delayCs & 0xFF, (delayCs >> 8) & 0xFF, 0x00, 0x00]));
     parts.push(Buffer.from([0x2C]));
     parts.push(_u16(0)); parts.push(_u16(0));
     parts.push(_u16(_GIF_W)); parts.push(_u16(_GIF_H));
-    parts.push(Buffer.from([0x00, minCS]));
+    parts.push(Buffer.from([0x00]));
+    parts.push(Buffer.from([minCS]));
     parts.push(_subBlocks(_lzwEncode(pixels, minCS)));
   }
   parts.push(Buffer.from([0x3B]));
@@ -233,7 +246,10 @@ async function gemFetch(path) {
   const res = await fetch(`${GEM_API_BASE}${path}`, {
     headers: { 'X-API-Key': GEM_API_KEY, 'Content-Type': 'application/json' }
   });
-  if (!res.ok) { const body = await res.text(); throw new Error(`Gem API ${res.status} on ${path}: ${body}`); }
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Gem API ${res.status} on ${path}: ${body}`);
+  }
   return res.json();
 }
 
@@ -241,16 +257,18 @@ async function pollGemForHires() {
   if (!GEM_API_KEY) return { skipped: true };
   const after = lastCheckedAt.toISOString();
   const newLastChecked = new Date();
-  const apps = await gemFetch(`/applications?status=hired&last_activity_after=${encodeURIComponent(after)}&per_page=100`);
+  const apps = await gemFetch(
+    `/applications?status=hired&last_activity_after=${encodeURIComponent(after)}&per_page=100`
+  );
   let announced = 0;
   for (const app of apps) {
     if (announcedAppIds.has(app.id)) continue;
     let candidateName = 'Unknown Candidate';
-    let linkedin = null;
     try {
       const candidate = await gemFetch(`/candidates/${app.candidate_id}`);
-      candidateName = candidate.name || [candidate.first_name, candidate.last_name].filter(Boolean).join(' ') || candidateName;
-      linkedin = candidate.linkedin_url || candidate.linkedin || null;
+      candidateName = candidate.name
+        || [candidate.first_name, candidate.last_name].filter(Boolean).join(' ')
+        || candidateName;
     } catch (_) {}
     const job = (app.jobs || [])[0] || {};
     const role = job.name || job.title || 'Unknown Role';
@@ -261,7 +279,7 @@ async function pollGemForHires() {
       await slack.chat.postMessage({
         channel: CHANNEL,
         text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin })
+        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
       });
       announcedAppIds.add(app.id);
       announced++;
@@ -282,19 +300,39 @@ function buildHireBlocks({ candidateName, role, location, recruiter, linkedin })
     ...(linkedin ? [{ type: 'mrkdwn', text: `*LINKEDIN*\n<${linkedin}|View Profile>` }] : [])
   ];
   return [
-    { type: 'image', image_url: 'https://hire-bot-032u.onrender.com/hire-gif?v=7', alt_text: 'Rocket emojis launching' },
-    { type: 'section', text: { type: 'mrkdwn', text: '🎉 *We have a new hire!*' } },
-    { type: 'section', text: { type: 'mrkdwn', text: `Please join us in welcoming *${candidateName}* to the team! :wave:` } },
-    { type: 'section', fields },
+    {
+      type: 'image',
+      image_url: 'https://hire-bot-032u.onrender.com/hire-gif?v=7',
+      alt_text: 'Rocket emojis launching'
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: '🎉 *We have a new hire!*' }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `Please join us in welcoming *${candidateName}* to the team! :wave:`
+      }
+    },
+    {
+      type: 'section',
+      fields: fields
+    },
     { type: 'divider' }
   ];
 }
 
 app.post('/new-hire', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.body.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
   const { candidateName, role, location, recruiter, linkedin, channel: channelOverride } = req.body;
-  if (!candidateName || !role) return res.status(400).json({ error: 'candidateName and role are required.' });
+  if (!candidateName || !role) {
+    return res.status(400).json({ error: 'candidateName and role are required.' });
+  }
   try {
     await slack.chat.postMessage({
       channel: channelOverride || CHANNEL,
@@ -302,18 +340,22 @@ app.post('/new-hire', async (req, res) => {
       blocks: buildHireBlocks({ candidateName, role, location: location || 'TBD', recruiter: recruiter || 'Unknown', linkedin })
     });
     res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/slash-hired', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
   const text = (req.body.text || '').trim();
   const parts = text.split(',').map(s => s.trim());
   const candidateName = parts[0] || 'Unknown Candidate';
-  const role = parts[1] || 'Unknown Role';
-  const location = parts[2] || 'TBD';
-  const recruiter = parts[3] || 'Unknown Recruiter';
+  const role          = parts[1] || 'Unknown Role';
+  const location      = parts[2] || 'TBD';
+  const recruiter     = parts[3] || 'Unknown Recruiter';
   try {
     await slack.chat.postMessage({
       channel: CHANNEL,
@@ -321,36 +363,63 @@ app.post('/slash-hired', async (req, res) => {
       blocks: buildHireBlocks({ candidateName, role, location, recruiter })
     });
     res.json({ response_type: 'in_channel', text: `Announced ${candidateName} in ${CHANNEL}!` });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/gem-webhook', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
   const { candidate, job, stage, recruiter } = req.body;
   const stageName = stage?.name || '';
-  if (!stageName.toLowerCase().includes('hired')) return res.json({ ok: true, message: `Stage "${stageName}" ignored.` });
-  const candidateName = candidate?.name || [candidate?.first_name, candidate?.last_name].filter(Boolean).join(' ') || 'Unknown Candidate';
-  const role = job?.name || 'Unknown Role';
-  const location = job?.office || job?.location || 'TBD';
+  if (!stageName.toLowerCase().includes('hired')) {
+    return res.json({ ok: true, message: `Stage "${stageName}" ignored.` });
+  }
+  const candidateName = candidate?.name
+    || [candidate?.first_name, candidate?.last_name].filter(Boolean).join(' ')
+    || 'Unknown Candidate';
+  const role          = job?.name || 'Unknown Role';
+  const location      = job?.office || job?.location || 'TBD';
   const recruiterName = recruiter?.name || recruiter?.email || 'Unknown Recruiter';
-  const linkedin = candidate?.linkedin_url || candidate?.linkedin || null;
   try {
     await slack.chat.postMessage({
       channel: CHANNEL,
       text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-      blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin })
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
     });
     res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/poll-gem', async (req, res) => {
   const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
-  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) return res.status(401).json({ error: 'Invalid or missing secret.' });
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
   try {
     const result = await pollGemForHires();
     res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/update-message', async (req, res) => {
+  const { ts, channel: ch, candidateName, role, location, recruiter, linkedin } = req.body;
+  if (!ts || !candidateName) return res.status(400).json({ error: 'ts and candidateName required.' });
+  try {
+    await slack.chat.update({
+      channel: ch || CHANNEL,
+      ts,
+      text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter, linkedin })
+    });
+    res.json({ ok: true, message: `Updated message ${ts}` });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -364,7 +433,9 @@ app.post('/test', async (req, res) => {
       blocks: buildHireBlocks({ candidateName, role, location, recruiter, linkedin })
     });
     res.json({ ok: true, message: `Test posted to ${target}` });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/hire-gif', (_req, res) => {
@@ -373,7 +444,9 @@ app.get('/hire-gif', (_req, res) => {
   res.send(HIRE_GIF);
 });
 
-app.get('/', (_req, res) => res.json({ status: 'ok', service: 'hire-bot', channel: CHANNEL }));
+app.get('/', (_req, res) =>
+  res.json({ status: 'ok', service: 'hire-bot', channel: CHANNEL })
+);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
