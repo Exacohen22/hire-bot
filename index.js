@@ -295,7 +295,7 @@ function buildHireBlocks({ candidateName, role, location, recruiter }) {
   return [
     {
       type: 'image',
-      image_url: 'https://hire-bot-032u.onrender.com/hire-gif?v=6',
+      image_url: 'https://hire-bot-032u.onrender.com/hire-gif?v=7',
       alt_text: 'Rocket emojis launching'
     },
     {
@@ -408,14 +408,15 @@ app.get('/poll-gem', async (req, res) => {
 });
 
 app.post('/test', async (req, res) => {
-  const { candidateName = 'Rory Milne', role = 'Account Executive', location = 'UK', recruiter = 'Alex' } = req.body;
+  const { candidateName = 'Rory Milne', role = 'Account Executive', location = 'UK', recruiter = 'Alex', channel: channelOverride } = req.body;
+  const target = channelOverride || '#x-test';
   try {
     await slack.chat.postMessage({
-      channel: '#x-test',
+      channel: target,
       text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
       blocks: buildHireBlocks({ candidateName, role, location, recruiter })
     });
-    res.json({ ok: true, message: 'Test posted to #x-test' });
+    res.json({ ok: true, message: `Test posted to ${target}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
