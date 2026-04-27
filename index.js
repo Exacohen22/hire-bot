@@ -264,11 +264,13 @@ async function pollGemForHires() {
   for (const app of apps) {
     if (announcedAppIds.has(app.id)) continue;
     let candidateName = 'Unknown Candidate';
+    let linkedin = null;
     try {
       const candidate = await gemFetch(`/candidates/${app.candidate_id}`);
       candidateName = candidate.name
         || [candidate.first_name, candidate.last_name].filter(Boolean).join(' ')
         || candidateName;
+      linkedin = candidate.linkedin_url || candidate.linkedin || null;
     } catch (_) {}
     const job = (app.jobs || [])[0] || {};
     const role = job.name || job.title || 'Unknown Role';
@@ -279,7 +281,7 @@ async function pollGemForHires() {
       await slack.chat.postMessage({
         channel: CHANNEL,
         text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
+        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin })
       });
       announcedAppIds.add(app.id);
       announced++;
@@ -384,11 +386,12 @@ app.post('/gem-webhook', async (req, res) => {
   const role          = job?.name || 'Unknown Role';
   const location      = job?.office || job?.location || 'TBD';
   const recruiterName = recruiter?.name || recruiter?.email || 'Unknown Recruiter';
+  const linkedin      = candidate?.linkedin_url || candidate?.linkedin || null;
   try {
     await slack.chat.postMessage({
       channel: CHANNEL,
       text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-      blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName })
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin })
     });
     res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
   } catch (err) {
