@@ -277,11 +277,12 @@ async function pollGemForHires() {
     const location = job.location || job.office || 'TBD';
     const rec = app.recruiter || app.coordinator || {};
     const recruiterName = rec.name || rec.email || 'Unknown Recruiter';
+    const startDate = app.start_date || app.expected_start_date || app.hire_date || null;
     try {
       await slack.chat.postMessage({
         channel: CHANNEL,
         text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin })
+        blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin, startDate })
       });
       announcedAppIds.add(app.id);
       announced++;
@@ -293,12 +294,20 @@ async function pollGemForHires() {
   return { announced, total: apps.length };
 }
 
-function buildHireBlocks({ candidateName, role, location, recruiter, linkedin }) {
+function _formatDate(d) {
+  if (!d) return null;
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function buildHireBlocks({ candidateName, role, location, recruiter, linkedin, startDate }) {
   const fields = [
     { type: 'mrkdwn', text: `*NAME*\n${candidateName}` },
     { type: 'mrkdwn', text: `*ROLE*\n${role}` },
     { type: 'mrkdwn', text: `*LOCATION*\n${location}` },
     { type: 'mrkdwn', text: `*RECRUITER*\n${recruiter}` },
+    ...(startDate ? [{ type: 'mrkdwn', text: `*START DATE*\n${_formatDate(startDate)}` }] : []),
     ...(linkedin ? [{ type: 'mrkdwn', text: `*LINKEDIN*\n<${linkedin}|View Profile>` }] : [])
   ];
   return [
@@ -331,7 +340,7 @@ app.post('/new-hire', async (req, res) => {
   if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
     return res.status(401).json({ error: 'Invalid or missing secret.' });
   }
-  const { candidateName, role, location, recruiter, linkedin, channel: channelOverride } = req.body;
+  const { candidateName, role, location, recruiter, linkedin, startDate, channel: channelOverride } = req.body;
   if (!candidateName || !role) {
     return res.status(400).json({ error: 'candidateName and role are required.' });
   }
@@ -339,7 +348,7 @@ app.post('/new-hire', async (req, res) => {
     await slack.chat.postMessage({
       channel: channelOverride || CHANNEL,
       text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-      blocks: buildHireBlocks({ candidateName, role, location: location || 'TBD', recruiter: recruiter || 'Unknown', linkedin })
+      blocks: buildHireBlocks({ candidateName, role, location: location || 'TBD', recruiter: recruiter || 'Unknown', linkedin, startDate })
     });
     res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
   } catch (err) {
@@ -387,11 +396,12 @@ app.post('/gem-webhook', async (req, res) => {
   const location      = job?.office || job?.location || 'TBD';
   const recruiterName = recruiter?.name || recruiter?.email || 'Unknown Recruiter';
   const linkedin      = candidate?.linkedin_url || candidate?.linkedin || null;
+  const startDate     = req.body.application?.start_date || req.body.start_date || null;
   try {
     await slack.chat.postMessage({
       channel: CHANNEL,
       text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-      blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin })
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin, startDate })
     });
     res.json({ ok: true, message: `Announcement posted to ${CHANNEL}!` });
   } catch (err) {
@@ -413,27 +423,27 @@ app.get('/poll-gem', async (req, res) => {
 });
 
 app.post('/update-message', async (req, res) => {
-  const { ts, channel: ch, candidateName, role, location, recruiter, linkedin } = req.body;
+  const { ts, channel: ch, candidateName, role, location, recruiter, linkedin, startDate } = req.body;
   if (!ts || !candidateName) return res.status(400).json({ error: 'ts and candidateName required.' });
   try {
     await slack.chat.update({
       channel: ch || CHANNEL,
       ts,
       text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-      blocks: buildHireBlocks({ candidateName, role, location, recruiter, linkedin })
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter, linkedin, startDate })
     });
     res.json({ ok: true, message: `Updated message ${ts}` });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/test', async (req, res) => {
-  const { candidateName = 'Rory Milne', role = 'Account Executive', location = 'UK', recruiter = 'Alex', linkedin, channel: channelOverride } = req.body;
+  const { candidateName = 'Rory Milne', role = 'Account Executive', location = 'UK', recruiter = 'Alex', linkedin, startDate, channel: channelOverride } = req.body;
   const target = channelOverride || '#x-test';
   try {
     await slack.chat.postMessage({
       channel: target,
       text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
-      blocks: buildHireBlocks({ candidateName, role, location, recruiter, linkedin })
+      blocks: buildHireBlocks({ candidateName, role, location, recruiter, linkedin, startDate })
     });
     res.json({ ok: true, message: `Test posted to ${target}` });
   } catch (err) {
