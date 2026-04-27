@@ -301,14 +301,21 @@ function _formatDate(d) {
   return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
+function _formatName(fullName) {
+  if (!fullName) return fullName;
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return parts[0] + ' ' + parts[parts.length - 1][0] + '.';
+}
+
 function buildHireBlocks({ candidateName, role, location, recruiter, linkedin, startDate }) {
+  const displayName = _formatName(candidateName);
   const fields = [
-    { type: 'mrkdwn', text: `*NAME*\n${candidateName}` },
+    { type: 'mrkdwn', text: `*NAME*\n${displayName}` },
     { type: 'mrkdwn', text: `*ROLE*\n${role}` },
     { type: 'mrkdwn', text: `*LOCATION*\n${location}` },
     { type: 'mrkdwn', text: `*RECRUITER*\n${recruiter}` },
-    ...(startDate ? [{ type: 'mrkdwn', text: `*START DATE*\n${_formatDate(startDate)}` }] : []),
-    ...(linkedin ? [{ type: 'mrkdwn', text: `*LINKEDIN*\n<${linkedin}|View Profile>` }] : [])
+    ...(startDate ? [{ type: 'mrkdwn', text: `*START DATE*\n${_formatDate(startDate)}` }] : [])
   ];
   return [
     {
@@ -324,7 +331,7 @@ function buildHireBlocks({ candidateName, role, location, recruiter, linkedin, s
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `Please join us in welcoming *${candidateName}* to the team! :wave:`
+        text: `Please join us in welcoming *${displayName}* to the team! :wave:`
       }
     },
     {
