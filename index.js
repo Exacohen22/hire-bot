@@ -243,8 +243,12 @@ const GEM_API_BASE = 'https://api.gem.com/ats/v0';
 const POLL_INTERVAL_MS = 10 * 60 * 1000;
 
 const announcedAppIds = new Set();
-// Look back 24 hours on startup so hires aren't missed during Render sleep/restarts
-let lastCheckedAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+// Look back only 15 minutes on startup. GitHub Actions pings every 5 min so the bot
+// stays warm and won't miss hires. A short lookback prevents duplicate posts on redeploy.
+let lastCheckedAt = new Date(Date.now() - 15 * 60 * 1000);
+// On the first poll after any restart, route uncertain posts to #x-test (not #new-hires)
+// so that restart-triggered duplicates never land in the production channel.
+let isStartupPoll = true;
 
 async function gemFetch(path) {
   const controller = new AbortController();
@@ -283,7 +287,7 @@ async function alreadyAnnouncedInSlack(candidateName) {
     });
   } catch (err) {
     console.error('[hire-bot] Could not check Slack history:', err.message);
-    return false;
+    return true; // if we can't verify, assume already announced — stay silent rather than duplicate
   }
 }
 
@@ -291,6 +295,8 @@ async function pollGemForHires() {
   if (!GEM_API_KEY) return { skipped: true };
   const after = lastCheckedAt.toISOString();
   const newLastChecked = new Date();
+  // On startup polls, route to #x-test as a safety net so restarts never pollute #new-hires
+  const targetChannel = isStartupPoll ? '#x-test' : CHANNEL;
   const apps = await gemFetch(
     `/applications?status=hired&last_activity_after=${encodeURIComponent(after)}&per_page=100`
   );
@@ -325,9 +331,12 @@ async function pollGemForHires() {
     const rec = app.recruiter || app.coordinator || {};
     const recruiterName = rec.name || rec.email || 'Unknown Recruiter';
     const startDate = app.start_date || app.expected_start_date || app.hire_date || null;
+    if (isStartupPoll) {
+      console.log(`[hire-bot] Startup-mode: routing ${candidateName} to #x-test instead of #new-hires for safety`);
+    }
     try {
       await slack.chat.postMessage({
-        channel: CHANNEL,
+        channel: targetChannel,
         text: `🎉 New hire alert! Welcome ${candidateName} as ${role}!`,
         blocks: buildHireBlocks({ candidateName, role, location, recruiter: recruiterName, linkedin, startDate })
       });
@@ -337,8 +346,10 @@ async function pollGemForHires() {
       console.error(`[hire-bot] Slack error for ${candidateName}:`, err.message);
     }
   }
+  // After the first poll completes, switch to normal mode — posts go to #new-hires
+  isStartupPoll = false;
   lastCheckedAt = newLastChecked;
-  return { announced, skippedDups, total: apps.length };
+  return { announced, skippedDups, total: apps.length, channel: targetChannel };
 }
 function _formatDate(d) {
   if (!d) return null;
