@@ -272,14 +272,13 @@ async function alreadyAnnouncedInSlack(candidateName) {
   try {
     const result = await slack.conversations.history({ channel: CHANNEL, limit: 200 });
     const msgs = (result.messages || []);
-    const nameLower = candidateName.toLowerCase();
+    // Check both full name AND abbreviated display name (e.g. "Donald Yung" -> "Donald Y.")
+    const fullLower = candidateName.toLowerCase();
+    const shortLower = _formatName(candidateName).toLowerCase();
+    const matches = (text) => text.includes(fullLower) || text.includes(shortLower);
     return msgs.some(m => {
-      const textMatch = (m.text || '').toLowerCase().includes(nameLower);
-      if (textMatch) return true;
-      if (m.blocks) {
-        const blockText = JSON.stringify(m.blocks).toLowerCase();
-        return blockText.includes(nameLower);
-      }
+      if (matches((m.text || '').toLowerCase())) return true;
+      if (m.blocks) return matches(JSON.stringify(m.blocks).toLowerCase());
       return false;
     });
   } catch (err) {
