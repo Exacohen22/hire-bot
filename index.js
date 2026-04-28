@@ -317,7 +317,12 @@ async function pollGemForHires() {
     }
     const job = (app.jobs || [])[0] || {};
     const role = job.name || job.title || 'Unknown Role';
-    const location = job.location || job.office || 'TBD';
+    // Location lives on the full job object under offices[0].name
+    let location = 'TBD';
+    try {
+      const fullJob = await gemFetch(`/jobs/${job.id}`);
+      location = (fullJob.offices || [])[0]?.name || 'TBD';
+    } catch (_) {}
     const rec = app.recruiter || app.coordinator || {};
     const recruiterName = rec.name || rec.email || 'Unknown Recruiter';
     const startDate = app.start_date || app.expected_start_date || app.hire_date || null;
