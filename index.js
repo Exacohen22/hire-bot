@@ -243,8 +243,8 @@ const GEM_API_BASE = 'https://api.gem.com/ats/v0';
 const POLL_INTERVAL_MS = 10 * 60 * 1000;
 
 const announcedAppIds = new Set();
-// Look back 48 hours on startup so hires are not missed during Render sleep/restarts
-let lastCheckedAt = new Date(Date.now() - 48 * 60 * 60 * 1000);
+// Look back 24 hours on startup so hires aren't missed during Render sleep/restarts
+let lastCheckedAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
 async function gemFetch(path) {
   const controller = new AbortController();
@@ -265,6 +265,29 @@ async function gemFetch(path) {
     throw err;
   }
 }
+// Check if a hire has already been announced in the Slack channel
+// by scanning recent message history for the candidate's name.
+async function alreadyAnnouncedInSlack(candidateName) {
+  if (!candidateName || candidateName === 'Unknown Candidate') return false;
+  try {
+    const result = await slack.conversations.history({ channel: CHANNEL, limit: 200 });
+    const msgs = (result.messages || []);
+    const nameLower = candidateName.toLowerCase();
+    return msgs.some(m => {
+      const textMatch = (m.text || '').toLowerCase().includes(nameLower);
+      if (textMatch) return true;
+      if (m.blocks) {
+        const blockText = JSON.stringify(m.blocks).toLowerCase();
+        return blockText.includes(nameLower);
+      }
+      return false;
+    });
+  } catch (err) {
+    console.error('[hire-bot] Could not check Slack history:', err.message);
+    return false;
+  }
+}
+
 async function pollGemForHires() {
   if (!GEM_API_KEY) return { skipped: true };
   const after = lastCheckedAt.toISOString();
@@ -273,8 +296,9 @@ async function pollGemForHires() {
     `/applications?status=hired&last_activity_after=${encodeURIComponent(after)}&per_page=100`
   );
   let announced = 0;
+  let skippedDups = 0;
   for (const app of apps) {
-    if (announcedAppIds.has(app.id)) continue;
+    if (announcedAppIds.has(app.id)) { skippedDups++; continue; }
     let candidateName = 'Unknown Candidate';
     let linkedin = null;
     try {
@@ -284,6 +308,13 @@ async function pollGemForHires() {
         || candidateName;
       linkedin = candidate.linkedin_url || candidate.linkedin || null;
     } catch (_) {}
+    const alreadyPosted = await alreadyAnnouncedInSlack(candidateName);
+    if (alreadyPosted) {
+      console.log(`[hire-bot] Skipping ${candidateName} — already announced in #new-hires`);
+      announcedAppIds.add(app.id);
+      skippedDups++;
+      continue;
+    }
     const job = (app.jobs || [])[0] || {};
     const role = job.name || job.title || 'Unknown Role';
     const location = job.location || job.office || 'TBD';
@@ -303,9 +334,8 @@ async function pollGemForHires() {
     }
   }
   lastCheckedAt = newLastChecked;
-  return { announced, total: apps.length };
+  return { announced, skippedDups, total: apps.length };
 }
-
 function _formatDate(d) {
   if (!d) return null;
   const dt = new Date(d);
