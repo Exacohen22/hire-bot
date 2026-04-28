@@ -243,7 +243,8 @@ const GEM_API_BASE = 'https://api.gem.com/ats/v0';
 const POLL_INTERVAL_MS = 10 * 60 * 1000;
 
 const announcedAppIds = new Set();
-let lastCheckedAt = new Date();
+// Look back 48 hours on startup so hires are not missed during Render sleep/restarts
+let lastCheckedAt = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
 async function gemFetch(path) {
   const controller = new AbortController();
