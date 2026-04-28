@@ -455,6 +455,19 @@ app.post('/update-message', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/delete-message', async (req, res) => {
+  const incomingSecret = req.headers['x-webhook-secret'] || req.body.secret;
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
+  const { ts, channel: ch } = req.body;
+  if (!ts) return res.status(400).json({ error: 'ts required.' });
+  try {
+    await slack.chat.delete({ channel: ch || CHANNEL, ts });
+    res.json({ ok: true, deleted: ts });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/test', async (req, res) => {
   const { candidateName = 'Rory Milne', role = 'Account Executive', location = 'UK', recruiter = 'Alex', linkedin, startDate, channel: channelOverride } = req.body;
   const target = channelOverride || '#x-test';
