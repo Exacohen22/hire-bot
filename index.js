@@ -513,6 +513,26 @@ app.post('/test', async (req, res) => {
   }
 });
 
+// Debug endpoint: returns raw Gem data for the most recent hired application
+app.get('/debug-gem', async (req, res) => {
+  const incomingSecret = req.headers['x-webhook-secret'] || req.query.secret;
+  if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid or missing secret.' });
+  }
+  if (!GEM_API_KEY) return res.status(400).json({ error: 'No GEM_API_KEY set.' });
+  try {
+    const apps = await gemFetch(`/applications?status=hired&per_page=3`);
+    const result = await Promise.all((apps || []).slice(0, 3).map(async app => {
+      let job = null;
+      try { job = await gemFetch(`/jobs/${(app.jobs||[])[0]?.id}`); } catch(_) {}
+      return { app_keys: Object.keys(app), app_jobs_sample: app.jobs, app_job_full: job };
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/hire-gif', (_req, res) => {
   res.setHeader('Content-Type', 'image/gif');
   res.setHeader('Cache-Control', 'public, max-age=86400');
