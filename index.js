@@ -232,7 +232,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+const slack = new WebClient(process.env.SLACK_BOT_TOKEN, {
+  timeout: 15000,
+  retryConfig: { retries: 1 },
+});
 const CHANNEL = process.env.SLACK_CHANNEL || '#new-hires';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 const GEM_API_KEY = process.env.GEM_API_KEY;
@@ -243,16 +246,24 @@ const announcedAppIds = new Set();
 let lastCheckedAt = new Date();
 
 async function gemFetch(path) {
-  const res = await fetch(`${GEM_API_BASE}${path}`, {
-    headers: { 'X-API-Key': GEM_API_KEY, 'Content-Type': 'application/json' }
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gem API ${res.status} on ${path}: ${body}`);
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${GEM_API_BASE}${path}`, {
+      headers: { 'X-API-Key': GEM_API_KEY, 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(tid);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Gem API ${res.status} on ${path}: ${body}`);
+    }
+    return res.json();
+  } catch (err) {
+    clearTimeout(tid);
+    throw err;
   }
-  return res.json();
 }
-
 async function pollGemForHires() {
   if (!GEM_API_KEY) return { skipped: true };
   const after = lastCheckedAt.toISOString();
